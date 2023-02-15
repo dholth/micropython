@@ -9,7 +9,7 @@
 // Test if a file is opus.
 STATIC mp_obj_t opus_test(mp_obj_t a_obj, mp_obj_t b_obj) {
     OpusHead head;
-    const char initial_data[57];
+    const unsigned char initial_data[57] = {0};
     int is_opus = op_test(&head, initial_data, 57);
     return mp_obj_new_int(is_opus);
 }
@@ -23,15 +23,15 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(opus_test_obj, opus_test);
 // optimized to word-sized integers by the build system (interned strings).
 STATIC const mp_rom_map_elem_t opus_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_opus) },
-    { MP_ROM_QSTR(MP_QSTR_op_test), MP_ROM_PTR(&opus_test) },
+    { MP_ROM_QSTR(MP_QSTR_op_test), MP_ROM_PTR(&opus_test_obj) },
 };
-STATIC MP_DEFINE_CONST_DICT(example_module_globals, example_module_globals_table);
+STATIC MP_DEFINE_CONST_DICT(opus_module_globals, opus_module_globals_table);
 
 // Define module object.
-const mp_obj_module_t example_user_cmodule = {
+const mp_obj_module_t opus_module = {
     .base = { &mp_type_module },
-    .globals = (mp_obj_dict_t *)&example_module_globals,
+    .globals = (mp_obj_dict_t *)&opus_module_globals,
 };
 
 // Register the module to make it available in Python.
-MP_REGISTER_MODULE(MP_QSTR_cexample, example_user_cmodule);
+MP_REGISTER_MODULE(MP_QSTR_opus, opus_module);
