@@ -20,7 +20,18 @@ if(NOT arduino_libopus_POPULATED)
     add_subdirectory(${arduino_libopus_SOURCE_DIR})
 endif()
 
-target_link_libraries(usermod INTERFACE arduino_libopus)
+# the arduino-libopus distribution doesn't include opusfile
+include(FetchContent)
+FetchContent_Declare(opusfile GIT_REPOSITORY "https://github.com/xiph/opusfile.git" GIT_TAG master )
+FetchContent_GetProperties(opusfile)
+if(NOT opusfile)
+    FetchContent_Populate(opusfile)
+    add_subdirectory(${opusfile_SOURCE_DIR})
+endif()
+
+target_compile_definition(opusfile PRIVATE -DOP_DISABLE_FLOAT_API=1 -DOP_FIXED_POINT=1)
+
+target_link_libraries(usermod INTERFACE arduino_libopus opusfile)
 
 # Link our INTERFACE library to the usermod target.
 target_link_libraries(usermod INTERFACE usermod_opus)
