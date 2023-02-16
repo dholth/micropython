@@ -11,9 +11,9 @@ typedef struct _mp_obj_opus_t
     OggOpusFile *of;
 } mp_obj_opus_t;
 
-// int (*op_read_func)(void *_stream,unsigned char *_ptr,int _nbytes);
 STATIC int op_stream_posix_read(void *_stream, unsigned char *_ptr, int _nbytes)
 {
+    // cast return type to int from ssize_t
     return (int)mp_stream_posix_read(_stream, _ptr, _nbytes);
 }
 
@@ -23,28 +23,73 @@ STATIC const OpusFileCallbacks mp_opus_callbacks = {
     NULL,
     NULL};
 
-#if !MICROPY_ENABLE_DYNRUNTIME
-// STATIC const mp_obj_type_t mp_opus_type;
-#endif
-
-// Test if a file is opus.
-STATIC mp_obj_t opus_test(mp_obj_t a_obj, mp_obj_t b_obj)
+// Test if a file is opus, given ideally >=57 bytes from the beginnning of the file.
+STATIC mp_obj_t opus_test(mp_obj_t buf_obj)
 {
+    mp_buffer_info_t bufinfo;
     OpusHead head;
-    const unsigned char initial_data[57] = {0};
-    int is_opus = op_test(&head, initial_data, 57);
-    return mp_obj_new_int(is_opus);
+
+    mp_get_buffer_raise(buf_obj, &bufinfo, MP_BUFFER_READ);
+
+    int is_opus = op_test(&head, bufinfo.buf, bufinfo.len);
+    if (is_opus < 0) {
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("opus error %d"), is_opus);
+    }
+    return mp_const_true;
 }
 // Define a Python reference to the function above.
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(opus_test_obj, opus_test);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(opus_test_obj, opus_test);
 
-STATIC mp_obj_t mp_opus_free(mp_obj_t self_in)
+// Does not close the underlying file, if any.
+STATIC mp_obj_t mp_opus_close(mp_obj_t self_in)
 {
     mp_obj_opus_t *self = MP_OBJ_TO_PTR(self_in);
+    if (self->of == NULL)
+    {
+        mp_raise_msg_varg(&mp_type_TypeError, MP_ERROR_TEXT("opus closed"));
+    }
     op_free(self->of);
+    self->of = NULL;
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_opus_free_obj, mp_opus_free);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_opus_close_obj, mp_opus_close);
+
+// Always decodes as 48khz 16-bit stereo.
+STATIC mp_obj_t mp_op_read_stereo(
+    mp_obj_t self_in,
+    mp_obj_t buf_obj)
+{
+    // "It is recommended that [the buffer] be large enough for at least 120 ms
+    // of data at 48 kHz per channel (11520 [16-bit] values total)." 48e3 *
+    // (120/1000) * 2 = 11520. i.e. 23040. bytes. (Otherwise it may just buffer
+    // extra samples internally)
+
+    // dholth: if you know you only use shorter frames, shorter buffers may be
+    // fine
+
+    mp_obj_opus_t *self = MP_OBJ_TO_PTR(self_in);
+    mp_buffer_info_t bufinfo;
+    mp_int_t samples_read;
+
+    mp_get_buffer_raise(buf_obj, &bufinfo, MP_BUFFER_WRITE);
+
+    if (self->of == NULL)
+    {
+        mp_raise_msg_varg(&mp_type_TypeError, MP_ERROR_TEXT("opus closed"));
+    }
+
+    samples_read = op_read_stereo(self->of,
+                                  (opus_int16 *)bufinfo.buf,
+                                  (int)bufinfo.len);
+
+    if (samples_read < 0)
+    {
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("opus error %d"), samples_read);
+    }
+
+    return mp_obj_new_int(samples_read);
+}
+MP_DEFINE_CONST_FUN_OBJ_2(mp_op_read_stereo_obj, mp_op_read_stereo);
 
 STATIC mp_obj_opus_t *opus_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
@@ -54,17 +99,11 @@ STATIC mp_obj_opus_t *opus_make_new(const mp_obj_type_t *type, size_t n_args, si
     self->base.type = (mp_obj_type_t *)type;
     self->stream = stream;
 
-    // Allow string and auto-open?
-    // if (mp_obj_is_str(stream))
-    // {
-    //     stream = mp_call_function_2(MP_OBJ_FROM_PTR(&mp_builtin_open_obj), stream, MP_ROM_QSTR(MP_QSTR_rb));
-    // }
-
     int error;
     self->of = op_open_callbacks(stream, &mp_opus_callbacks, NULL, 0, &error);
     if (error != 0)
     {
-        mp_raise_msg_varg(&mp_type_TypeError, MP_ERROR_TEXT("opus error %d"), error);
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("opus error %d"), error);
     }
 
     return MP_OBJ_FROM_PTR(self);
@@ -72,7 +111,9 @@ STATIC mp_obj_opus_t *opus_make_new(const mp_obj_type_t *type, size_t n_args, si
 
 // For the opusfile type
 STATIC const mp_rom_map_elem_t opus_locals_dict_table[] = {
-    {MP_ROM_QSTR(MP_QSTR_free), MP_ROM_PTR(&mp_opus_free_obj)},
+    {MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&mp_opus_close_obj)},
+    {MP_ROM_QSTR(MP_QSTR_free), MP_ROM_PTR(&mp_opus_close_obj)},
+    {MP_ROM_QSTR(MP_QSTR_read_stereo), MP_ROM_PTR(&mp_op_read_stereo_obj)},
 };
 STATIC MP_DEFINE_CONST_DICT(opus_locals_dict, opus_locals_dict_table);
 
@@ -91,7 +132,7 @@ MP_DEFINE_CONST_OBJ_TYPE(
 // optimized to word-sized integers by the build system (interned strings).
 STATIC const mp_rom_map_elem_t opus_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_opus)},
-    {MP_ROM_QSTR(MP_QSTR_op_test), MP_ROM_PTR(&opus_test_obj)},
+    {MP_ROM_QSTR(MP_QSTR_opus_test), MP_ROM_PTR(&opus_test_obj)},
     {MP_ROM_QSTR(MP_QSTR_opus), MP_ROM_PTR(&mp_opus_type)},
 };
 STATIC MP_DEFINE_CONST_DICT(opus_module_globals, opus_module_globals_table);
