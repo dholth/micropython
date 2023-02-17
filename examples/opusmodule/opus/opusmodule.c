@@ -32,7 +32,8 @@ STATIC mp_obj_t opus_test(mp_obj_t buf_obj)
     mp_get_buffer_raise(buf_obj, &bufinfo, MP_BUFFER_READ);
 
     int is_opus = op_test(&head, bufinfo.buf, bufinfo.len);
-    if (is_opus < 0) {
+    if (is_opus < 0)
+    {
         mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("opus error %d"), is_opus);
     }
     return mp_const_true;
