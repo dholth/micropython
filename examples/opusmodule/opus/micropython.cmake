@@ -11,6 +11,25 @@ target_include_directories(usermod_opus INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}
 )
 
+add_compile_definitions(INCLUDE_STDINT_H)
+
+# opus
+set(OPUS_FIXED_POINT ON)
+set(OPUS_DISABLE_FLOAT_API ON)
+set(OPUS_DISABLE_EXAMPLES ON)
+set(OPUS_DISABLE_DOCS ON)
+
+# opusfile
+set(OP_DISABLE_HTTP ON)
+set(OP_DISABLE_FLOAT_API ON)
+set(OP_FIXED_POINT ON)
+set(OP_DISABLE_EXAMPLES ON)
+set(OP_DISABLE_DOCS ON)
+set(OP_HAVE_LIBM OFF)
+
+# set_property(TARGET ogg PROPERTY C_STANDARD 99)
+# set_property(TARGET opus PROPERTY C_STANDARD 99)
+
 # build with libopus
 include(FetchContent)
 FetchContent_Declare(arduino_libopus GIT_REPOSITORY "https://github.com/pschatzmann/arduino-libopus.git" GIT_TAG main )
@@ -22,16 +41,18 @@ endif()
 
 # the arduino-libopus distribution doesn't include opusfile
 include(FetchContent)
-FetchContent_Declare(opusfile GIT_REPOSITORY "https://github.com/xiph/opusfile.git" GIT_TAG master )
+FetchContent_Declare(opusfile GIT_REPOSITORY "https://github.com/dholth/opusfile.git" GIT_TAG micropython )
 FetchContent_GetProperties(opusfile)
 if(NOT opusfile)
     FetchContent_Populate(opusfile)
     add_subdirectory(${opusfile_SOURCE_DIR})
 endif()
 
-target_compile_definition(opusfile PRIVATE -DOP_DISABLE_FLOAT_API=1 -DOP_FIXED_POINT=1)
+set_property(TARGET opusfile PROPERTY C_STANDARD 99)
 
-target_link_libraries(usermod INTERFACE arduino_libopus opusfile)
+target_include_directories(opusfile PUBLIC $<BUILD_INTERFACE:${arduino_libopus_SOURCE_DIR}/src>)
+
+target_link_libraries(usermod_opus INTERFACE arduino_libopus opusfile)
 
 # Link our INTERFACE library to the usermod target.
 target_link_libraries(usermod INTERFACE usermod_opus)
