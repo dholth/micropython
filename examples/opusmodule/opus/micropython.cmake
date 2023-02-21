@@ -52,7 +52,5 @@ set_property(TARGET opusfile PROPERTY C_STANDARD 99)
 
 target_include_directories(opusfile PUBLIC $<BUILD_INTERFACE:${arduino_libopus_SOURCE_DIR}/src>)
 
-target_link_libraries(usermod_opus INTERFACE arduino_libopus opusfile)
-
 # Link our INTERFACE library to the usermod target.
-target_link_libraries(usermod INTERFACE usermod_opus)
+target_link_libraries(usermod INTERFACE usermod_opus opusfile arduino_libopus)

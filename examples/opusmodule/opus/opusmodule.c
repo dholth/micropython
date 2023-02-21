@@ -4,6 +4,9 @@
 
 #include <opusfile.h>
 
+
+STATIC int op_stream_posix_read(void *_stream, unsigned char *_ptr, int _nbytes);
+
 typedef struct _mp_obj_opus_t
 {
     mp_obj_base_t base;
