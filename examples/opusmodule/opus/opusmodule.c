@@ -99,7 +99,13 @@ STATIC mp_obj_opus_t *opus_make_new(const mp_obj_type_t *type, size_t n_args, si
 {
     mp_arg_check_num(n_args, n_kw, 1, 1, false);
     mp_obj_opus_t *self = m_new_obj(mp_obj_opus_t);
+
+    // make sure we have a stream
+    mp_get_stream_raise(args[0], MP_STREAM_OP_READ);
+    // could use stream pointer functions directly in opus interface?
+
     mp_obj_t *stream = args[0];
+
     self->base.type = (mp_obj_type_t *)type;
     self->stream = stream;
 
