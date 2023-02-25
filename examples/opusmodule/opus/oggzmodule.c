@@ -10,7 +10,16 @@ typedef struct _mp_obj_oggz_t
     mp_obj_base_t base;
     mp_obj_t stream; // retain a reference to prevent GC from reclaiming it
     OGGZ *oggz;
+    OpusDecoder *opus;
+    oggz_packet *current_packet; // NULL unless currently decoding opus
 } mp_obj_oggz_t;
+
+STATIC int oggz_packet_cb(OGGZ *oggz, oggz_packet *packet, long serialno, void *user_data)
+{
+    mp_obj_oggz_t *self = (mp_obj_oggz_t *)user_data;
+    self->current_packet = packet;
+    return OGGZ_STOP_OK;
+}
 
 STATIC mp_obj_oggz_t *mp_oggz_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args)
 {
@@ -32,7 +41,20 @@ STATIC mp_obj_oggz_t *mp_oggz_make_new(const mp_obj_type_t *type, size_t n_args,
     }
 
     int error;
+
+    self->opus = opus_decoder_create(48000, 2, &error);
+    if (error != 0)
+    {
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("opus error %d"), error);
+    }
+
     error = oggz_io_set_read(self->oggz, (OggzIORead)&mp_stream_posix_read, self->stream);
+    if (error != 0)
+    {
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("oggz error %d"), error);
+    }
+
+    error = oggz_set_read_callback(self->oggz, -1, oggz_packet_cb, self);
     if (error != 0)
     {
         mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("oggz error %d"), error);
@@ -46,6 +68,8 @@ STATIC mp_obj_t mp_oggz_close(mp_obj_t self_in)
     mp_obj_oggz_t *self = MP_OBJ_TO_PTR(self_in);
     int error = oggz_close(self->oggz);
     self->oggz = NULL;
+    opus_decoder_destroy(self->opus);
+    self->opus = NULL;
     if (error != 0)
     {
         mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("oggz error %d"), error);
@@ -67,9 +91,32 @@ STATIC mp_obj_t mp_oggz_read(mp_obj_t self_in, mp_obj_t n)
 // Define a Python reference to the function above.
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(mp_oggz_read_obj, mp_oggz_read);
 
+// Decode opus samples to buffer
+// Return number of samples decoded (bytes = samples * 16 bit * 2)
+STATIC mp_obj_t mp_oggz_decode_opus(mp_obj_t self_in, mp_obj_t buf_obj)
+{
+    mp_obj_oggz_t *self = MP_OBJ_TO_PTR(self_in);
+    int bytes_read;
+    mp_buffer_info_t bufinfo;
+
+    mp_get_buffer_raise(buf_obj, &bufinfo, MP_BUFFER_READ);
+
+    self->current_packet = NULL;
+    bytes_read = oggz_read(self->oggz, 512);
+    if (bytes_read < 0 && bytes_read != OGGZ_ERR_STOP_OK)
+    {
+        mp_raise_msg_varg(&mp_type_RuntimeError, MP_ERROR_TEXT("oggz error %d"), bytes_read);
+    }
+    int samples_read = opus_decode(self->opus, self->current_packet->op.packet, self->current_packet->op.bytes, bufinfo.buf, bufinfo.len / 4, 0);
+
+    return mp_obj_new_int(samples_read);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(mp_oggz_decode_opus_obj, mp_oggz_decode_opus);
+
 STATIC const mp_rom_map_elem_t oggz_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&mp_oggz_close_obj)},
     {MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&mp_oggz_read_obj)},
+    {MP_ROM_QSTR(MP_QSTR_decode_opus), MP_ROM_PTR(&mp_oggz_decode_opus_obj)},
 };
 STATIC MP_DEFINE_CONST_DICT(oggz_locals_dict, oggz_locals_dict_table);
 
