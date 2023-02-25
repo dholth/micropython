@@ -1,2 +1,2 @@
 #!/bin/sh
-make -j USER_C_MODULES=../../examples/opusmodule CFLAGS_EXTRA=-DMODULE_OPUS_ENABLED=1  V=1
+make -j USER_C_MODULES=../../examples/opusmodule CFLAGS_EXTRA=-DMODULE_OPUS_ENABLED=1,-DMODULE_OGGZ_ENABLED=1  V=1
