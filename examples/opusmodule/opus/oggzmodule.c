@@ -2,8 +2,10 @@
 #include "py/runtime.h"
 #include "py/stream.h"
 
-#include <oggz/oggz.h>
-#include <opus/opus.h>
+#include <string.h>
+
+#include "oggz/oggz.h"
+#include "opus.h"
 
 typedef struct _mp_obj_oggz_t {
   mp_obj_base_t base;
