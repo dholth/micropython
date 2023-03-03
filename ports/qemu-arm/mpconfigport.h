@@ -51,6 +51,8 @@
 #define MICROPY_USE_INTERNAL_PRINTF (1)
 #define MICROPY_VFS                 (1)
 
+#define MICROPY_STREAMS_POSIX_API   (1)
+
 // type definitions for the specific machine
 
 #define MP_SSIZE_MAX (0x7fffffff)

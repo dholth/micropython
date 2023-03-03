@@ -146,7 +146,7 @@ run: $(BUILD)/firmware.elf
 
 ## `$(LD)` doesn't seem to like `--specs` for some reason, but we can just use `$(CC)` here.
 $(BUILD)/firmware.elf: $(LDSCRIPT) $(ALL_OBJ_RUN)
-	$(Q)$(LD) $(LDFLAGS) -o $@ $(ALL_OBJ_RUN) $(LIBS)
+	$(Q)$(LD) $(LDFLAGS) -o $@ $(OPUS_LIB_A) $(ALL_OBJ_RUN) $(LIBS)
 	$(Q)$(SIZE) $@
 
 include $(TOP)/py/mkrules.mk
