@@ -66,7 +66,7 @@ else
 COPT += -Os -DNDEBUG
 endif
 
-## With CoudeSourcery it's actually a little different, you just need `-T generic-m-hosted.ld`.
+## With CodeSourcery it's actually a little different, you just need `-T generic-m-hosted.ld`.
 ## Although for some reason `$(LD)` will not find that linker script, it works with `$(CC)`.
 ## It turns out that this is specific to CoudeSourcery, and ARM version of GCC ships something
 ## else instead and according to the following files, this is what we need to pass to `$(CC).
