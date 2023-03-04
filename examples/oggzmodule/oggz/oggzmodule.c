@@ -17,6 +17,15 @@ typedef struct _mp_obj_oggz_t
   const char *content_type;
 } mp_obj_oggz_t;
 
+STATIC int op_stream_posix_read(void *_stream, unsigned char *_ptr,
+                                int _nbytes)
+{
+  int errcode;
+  int bytes_read;
+  bytes_read = mp_stream_rw(_stream, _ptr, _nbytes, &errcode, MP_STREAM_RW_READ);
+  return bytes_read;
+}
+
 STATIC int oggz_packet_cb(OGGZ *oggz, oggz_packet *packet, long serialno,
                           void *user_data)
 {
@@ -57,7 +66,7 @@ STATIC mp_obj_t mp_oggz_make_new(const mp_obj_type_t *type, size_t n_args, size_
                       error);
   }
 
-  error = oggz_io_set_read(self->oggz, (OggzIORead)&mp_stream_posix_read,
+  error = oggz_io_set_read(self->oggz, (OggzIORead)&op_stream_posix_read,
                            self->stream);
   if (error != 0)
   {
