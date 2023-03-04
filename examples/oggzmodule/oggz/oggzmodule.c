@@ -7,6 +7,13 @@
 #include "oggz/oggz.h"
 #include "opus.h"
 
+// small standard library
+int _fstat;
+int __gnu_thumb1_case_shi;
+int _close;
+int _isatty;
+int _lseek;
+
 typedef struct _mp_obj_oggz_t
 {
   mp_obj_base_t base;
