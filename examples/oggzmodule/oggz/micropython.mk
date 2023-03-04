@@ -11,4 +11,4 @@ CFLAGS_USERMOD += -DHAVE_CONFIG_H \
 	-Wno-unused-but-set-variable \
 	-Wno-unused-function \
 	-fsingle-precision-constant \
-	-Dabort=abort_
+	-Wno-sizeof-array-div -Wno-stringop-overread
